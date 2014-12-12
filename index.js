@@ -55,6 +55,7 @@ function list(){
     fis.util.map(plugins, function(name, item){
         console.log(' ' + name.green + ' : ' + item.info);
     });
+    console.log(' \r\n ' + 'yog2 plugin install https://github.com/fex-team/yog2-plugin-session@0.0.0'.yellow + ' also works');
     return true;
 }
 
@@ -70,9 +71,14 @@ function install(name){
     var conf = plugins[name[0]];
 
     if (!conf){
-        fis.log.warning('invalid plugin name'.red);
-        list();
-        return true;
+        var parsedConf = tryParseUrl(name[0]);
+        if (!parsedConf){
+            fis.log.warning('invalid plugin name'.red);
+            list();
+            return true;
+        }else{
+            conf = parsedConf;
+        }
     }
     var scaffold = new (require('fis-scaffold-kernel'))({
         type: conf.config.type,
@@ -86,39 +92,61 @@ function install(name){
     fis.log.notice('Yog project path: ' + dir);
     var prompts = null;
     var keyword_reg = conf.config.keyword_reg || /\{\{-([\s\S]*?)-\}\}/ig;
-    scaffold.release(
-        conf.config.repos + '@' + version,
-        dir,
-        [],
-        [{
-            reg: /(^[\/\\]plugins[\/\\].*)/,
-            release: '$&',
-        },{
-            reg: /(^[\/\\]conf[\/\\].*)/,
-            release: '$&',
-        },{
-            reg: /^[\/\\]plugin.json/,
-            release: '/plugins/' + name + '-plugin.json',
-        },{
-            reg: '**',
-            release: false
-        }],
-        function(err){
-            if (err){
-                fis.log.error(err);
-            }
-            else{
-                //安装依赖
-                installDeps(dir, dir + '/plugins/' + name + '-plugin.json');
-                fis.log.notice('Done');
-            }
+
+    scaffold.download(conf.config.repos + '@' + version, function(err, temp_path){
+        if (err){
+            fis.log.error(err);
         }
-    );
+        var pluginInfo = require(temp_path + '/plugin.json');
+        scaffold.deliver(temp_path, dir, 
+            [{
+                reg: /(^[\/\\]plugins[\/\\].*)/,
+                release: '$&',
+            },{
+                reg: /(^[\/\\]conf[\/\\].*)/,
+                release: '$&',
+            },{
+                reg: /^[\/\\]plugin.json/,
+                release: '/plugins/' + pluginInfo.name + '-plugin.json',
+            },{
+                reg: '**',
+                release: false
+            }]
+        );
+        //安装依赖
+        installDeps(dir, pluginInfo);
+        fis.log.notice('Done');
+    });
     return true;
 }
 
-function installDeps(dir, pluginFile){
-    var pluginInfo = require(pluginFile);
+function tryParseUrl(url){
+    var conf = {
+        config: {            
+            'prompt': [],
+            'roadmap': []
+        },
+        info: 'remote repo'
+    };
+    if (/^https?:\/\//.test(url)){
+        var match = url.match(/(gitlab\.baidu\.com|github\.com)\/(.*)/);
+        if (match && match.length === 3){
+            switch (match[1]){
+                case 'github.com':
+                    conf.config.type = 'github';
+                    break;
+                case 'gitlab.baidu.com':
+                    conf.config.type = 'gitlab';
+                    break;
+            }
+            conf.config.repos = match[2];
+            return conf;
+        }
+    }
+    return false;
+}
+
+function installDeps(dir, pluginInfo){
     fis.util.map(pluginInfo.dependencies, function(key, version){
         var name = key + '@' + version;
         fis.log.notice('Install plugin deps: ' + name);
