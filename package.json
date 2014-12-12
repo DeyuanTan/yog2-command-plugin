@@ -1,6 +1,6 @@
 {
   "name": "yog2-command-plugin",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/fex-team/yog2-command-plugin",
   "dependencies": {
-    "fis-scaffold-kernel": "0.0.14",
+    "fis-scaffold-kernel": "0.0.16",
     "shelljs": "0.3.0"
   }
 }
