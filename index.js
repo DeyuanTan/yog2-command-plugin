@@ -13,10 +13,11 @@ exports.desc = 'yog plugin tool';
 var plugins = require('./config/plugins.js');
 require('shelljs/global');
 
-exports.register = function(commander) {
+exports.register = function (commander) {
     var o_args = process.argv;
- 
+
     commander
+        .option('--fis3', 'fis3 mode', Boolean, false)
         .option('--verbose', 'output verbose help', Boolean, false);
 
     commander
@@ -27,7 +28,7 @@ exports.register = function(commander) {
         .command('list')
         .description('list all yog plugin');
 
-    commander.action(function() {
+    commander.action(function () {
         var args = Array.prototype.slice.call(arguments);
         var options = args.pop();
         if (options.verbose) {
@@ -35,11 +36,12 @@ exports.register = function(commander) {
             fis.log.throw = true;
         }
         var command = args.shift();
-        if (commands[command]){
-            if (!commands[command].apply(this, args)){
+        if (commands[command]) {
+            if (!commands[command].apply(this, args)) {
                 commander.outputHelp();
             }
-        } else {
+        }
+        else {
             commander.outputHelp();
         }
     });
@@ -50,18 +52,19 @@ var commands = {
     list: list
 };
 
-function list(){
+function list() {
     console.log('\r\n ----------plugin list----------\r\n'.yellow);
-    fis.util.map(plugins, function(name, item){
+    fis.util.map(plugins, function (name, item) {
         console.log(' ' + name.green + ' : ' + item.info);
     });
-    console.log(' \r\n ' + 'yog2 plugin install https://github.com/fex-team/yog2-plugin-session@0.0.0'.yellow + ' also works');
+    console.log(' \r\n ' + 'yog2 plugin install https://github.com/fex-team/yog2-plugin-session@0.0.0'.yellow +
+        ' also works');
     return true;
 }
 
-function install(name){
-    if (!name){
-        return false;     
+function install(name) {
+    if (!name) {
+        return false;
     }
 
     var args = Array.prototype.slice.call(arguments);
@@ -70,17 +73,18 @@ function install(name){
 
     var conf = plugins[name[0]];
 
-    if (!conf){
+    if (!conf) {
         var parsedConf = tryParseUrl(name[0]);
-        if (!parsedConf){
+        if (!parsedConf) {
             fis.log.warning('invalid plugin name'.red);
             list();
             return true;
-        }else{
+        }
+        else {
             conf = parsedConf;
         }
     }
-    var scaffold = new (require('fis-scaffold-kernel'))({
+    var scaffold = new(require('fis-scaffold-kernel'))({
         type: conf.config.type,
         log: {
             level: 0 //default show all log; set `0` == silent.
@@ -93,26 +97,24 @@ function install(name){
     var prompts = null;
     var keyword_reg = conf.config.keyword_reg || /\{\{-([\s\S]*?)-\}\}/ig;
 
-    scaffold.download(conf.config.repos + '@' + version, function(err, temp_path){
-        if (err){
+    scaffold.download(conf.config.repos + '@' + version, function (err, temp_path) {
+        if (err) {
             fis.log.error(err);
         }
         var pluginInfo = require(temp_path + '/plugin.json');
-        scaffold.deliver(temp_path, dir, 
-            [{
-                reg: /(^[\/\\]plugins[\/\\].*)/,
-                release: '$&',
-            },{
-                reg: /(^[\/\\]conf[\/\\].*)/,
-                release: '$&',
-            },{
-                reg: /^[\/\\]plugin.json/,
-                release: '/plugins/' + pluginInfo.name + '-plugin.json',
-            },{
-                reg: '**',
-                release: false
-            }]
-        );
+        scaffold.deliver(temp_path, dir, [{
+            reg: /(^[\/\\]plugins[\/\\].*)/,
+            release: '$&',
+        }, {
+            reg: /(^[\/\\]conf[\/\\].*)/,
+            release: '$&',
+        }, {
+            reg: /^[\/\\]plugin.json/,
+            release: '/plugins/' + pluginInfo.name + '-plugin.json',
+        }, {
+            reg: '**',
+            release: false
+        }]);
         //安装依赖
         installDeps(dir, pluginInfo);
         fis.log.notice('Done');
@@ -120,24 +122,24 @@ function install(name){
     return true;
 }
 
-function tryParseUrl(url){
+function tryParseUrl(url) {
     var conf = {
-        config: {            
+        config: {
             'prompt': [],
             'roadmap': []
         },
         info: 'remote repo'
     };
-    if (/^https?:\/\//.test(url)){
+    if (/^https?:\/\//.test(url)) {
         var match = url.match(/(gitlab\.baidu\.com|github\.com)\/(.*)/);
-        if (match && match.length === 3){
-            switch (match[1]){
-                case 'github.com':
-                    conf.config.type = 'github';
-                    break;
-                case 'gitlab.baidu.com':
-                    conf.config.type = 'gitlab';
-                    break;
+        if (match && match.length === 3) {
+            switch (match[1]) {
+            case 'github.com':
+                conf.config.type = 'github';
+                break;
+            case 'gitlab.baidu.com':
+                conf.config.type = 'gitlab';
+                break;
             }
             conf.config.repos = match[2];
             return conf;
@@ -146,25 +148,28 @@ function tryParseUrl(url){
     return false;
 }
 
-function installDeps(dir, pluginInfo){
-    fis.util.map(pluginInfo.dependencies, function(key, version){
+function installDeps(dir, pluginInfo) {
+    fis.util.map(pluginInfo.dependencies, function (key, version) {
         var name = key + '@' + version;
         fis.log.notice('Install plugin deps: ' + name);
         exec('npm i --save ' + name);
     });
 }
 
-function lookupYog(dir){
-    var root = dir.replace(/\\/g, '/'), conf, cwd = root, pos = cwd.length;
+function lookupYog(dir) {
+    var root = dir.replace(/\\/g, '/'),
+        conf, cwd = root,
+        pos = cwd.length;
     do {
-        cwd  = cwd.substring(0, pos);
+        cwd = cwd.substring(0, pos);
         conf = cwd + '/package.json';
-        if(fis.util.exists(conf)){
+        if (fis.util.exists(conf)) {
             root = cwd;
             break;
-        } else {
+        }
+        else {
             pos = cwd.lastIndexOf('/');
         }
-    } while(pos > 0);
+    } while (pos > 0);
     return root;
 }
